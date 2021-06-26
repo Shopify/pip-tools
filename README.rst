@@ -1,4 +1,4 @@
-|jazzband| |pypi| |pyversions| |buildstatus-gha| |codecov|
+|jazzband| |pypi| |pyversions| |pre-commit| |buildstatus-gha| |codecov|
 
 ==================================
 pip-tools = pip-compile + pip-sync
@@ -19,6 +19,9 @@ even when you've pinned them.  You do pin them, right? (In building your Python 
 .. |jazzband| image:: https://jazzband.co/static/img/badge.svg
    :alt: Jazzband
    :target: https://jazzband.co/
+.. |pre-commit| image:: https://results.pre-commit.ci/badge/github/jazzband/pip-tools/master.svg
+   :alt: pre-commit.ci status
+   :target: https://results.pre-commit.ci/latest/github/jazzband/pip-tools/master
 .. |pypi| image:: https://img.shields.io/pypi/v/pip-tools.svg
    :alt: PyPI version
    :target: https://pypi.org/project/pip-tools/
@@ -26,7 +29,6 @@ even when you've pinned them.  You do pin them, right? (In building your Python 
    :alt: Supported Python versions
    :target: https://pypi.org/project/pip-tools/
 .. _You do pin them, right?: http://nvie.com/posts/pin-your-packages/
-
 
 Installation
 ============
@@ -37,7 +39,7 @@ Similar to ``pip``, ``pip-tools`` must be installed in each of your project's
 .. code-block:: bash
 
     $ source /path/to/venv/bin/activate
-    (venv)$ python -m pip install pip-tools
+    (venv) $ python -m pip install pip-tools
 
 **Note**: all of the remaining example commands assume you've activated your
 project's virtual environment.
@@ -59,9 +61,11 @@ project so conditional dependencies that require a specific Python version,
 or other environment markers, resolve relative to your project's
 environment.
 
-**Note**: ensure you don't have ``requirements.txt`` if you compile
-``setup.py`` or ``requirements.in`` from scratch, otherwise, it might
-interfere.
+**Note**: If ``pip-compile`` finds an existing ``requirements.txt`` file that
+fulfils the dependencies then no changes will be made, even if updates are
+available. To compile from scratch, first delete the existing
+``requirements.txt`` file, or see `Updating requirements`_ for alternative
+approaches.
 
 Requirements from ``setup.py``
 ------------------------------
@@ -127,6 +131,42 @@ And it will produce your ``requirements.txt``, with all the Django dependencies
 
 .. _it's easy to write one: https://packaging.python.org/guides/distributing-packages-using-setuptools/#configuring-your-project
 
+.. _Updating requirements:
+
+Updating requirements
+---------------------
+
+``pip-compile`` generates a ``requirements.txt`` file using the latest versions
+that fulfil the dependencies of ``setup.py`` or ``requirements.in``.
+
+If ``pip-compile`` finds an existing ``requirements.txt`` file that fulfils the
+dependencies then no changes will be made, even if updates are available.
+
+To force ``pip-compile`` to update all packages in an existing
+``requirements.txt``, run ``pip-compile --upgrade``.
+
+To update a specific package to the latest or a specific version use the
+``--upgrade-package`` or ``-P`` flag:
+
+.. code-block:: bash
+
+    # only update the django package
+    $ pip-compile --upgrade-package django
+
+    # update both the django and requests packages
+    $ pip-compile --upgrade-package django --upgrade-package requests
+
+    # update the django package to the latest, and requests to v2.0.0
+    $ pip-compile --upgrade-package django --upgrade-package requests==2.0.0
+
+You can combine ``--upgrade`` and ``--upgrade-package`` in one command, to
+provide constraints on the allowed upgrades. For example to upgrade all
+packages whilst constraining requests to the latest version less than 3.0:
+
+.. code-block:: bash
+
+    $ pip-compile --upgrade --upgrade-package 'requests<3.0'
+
 Using hashes
 ------------
 
@@ -158,33 +198,6 @@ version 8.0, ``pip-compile`` offers ``--generate-hashes`` flag:
         --hash=sha256:40afe6b8d4b1117e7dff5504d7a8ce07d9a1b15aeeade8a2d10f130a834f8177 \
         --hash=sha256:7c3dca29c022744e95b547e867cee89f4fce4373f3549ccd8797d8eb52cdb873 \
         # via django
-
-Updating requirements
----------------------
-
-To update all packages, periodically re-run ``pip-compile --upgrade``.
-
-To update a specific package to the latest or a specific version use the
-``--upgrade-package`` or ``-P`` flag:
-
-.. code-block:: bash
-
-    # only update the django package
-    $ pip-compile --upgrade-package django
-
-    # update both the django and requests packages
-    $ pip-compile --upgrade-package django --upgrade-package requests
-
-    # update the django package to the latest, and requests to v2.0.0
-    $ pip-compile --upgrade-package django --upgrade-package requests==2.0.0
-
-You can combine ``--upgrade`` and ``--upgrade-package`` in one command, to
-provide constraints on the allowed upgrades. For example to upgrade all
-packages whilst constraining requests to the latest version less than 3.0:
-
-.. code-block:: bash
-
-    $ pip-compile --upgrade --upgrade-package 'requests<3.0'
 
 Output File
 -----------
@@ -355,6 +368,30 @@ You might want to customize ``pip-compile`` args by configuring ``args`` and/or 
             files: ^requirements/production\.(in|txt)$
             args: [--index-url=https://example.com, requirements/production.in]
 
+If you have multiple requirement files make sure you create a hook for each file. 
+
+.. code-block:: yaml 
+
+    repos:
+      - repo: https://github.com/jazzband/pip-tools
+        rev: 5.3.1
+        hooks:
+          - id: pip-compile
+            name: pip-compile setup.py
+            files: ^(setup\.py|requirements\.txt)$
+          - id: pip-compile
+            name: pip-compile requirements-dev.in
+            args: [requirements-dev.in]
+            files: ^requirements-dev\.(in|txt)$
+          - id: pip-compile
+            name: pip-compile requirements-lint.in
+            args: [requirements-lint.in]
+            files: ^requirements-lint\.(in|txt)$
+          - id: pip-compile
+            name: pip-compile requirements.txt
+            args: [requirements.txt]
+            files: ^requirements\.(in|txt)$
+
 
 Example usage for ``pip-sync``
 ==============================
@@ -421,7 +458,7 @@ then yes, you should commit both ``requirements.in`` and ``requirements.txt`` to
 Note that if you are deploying on multiple Python environments (read the section below),
 then you must commit a seperate output file for each Python environment.
 We suggest to use the ``{env}-requirements.txt`` format
-(ex: ``win32-py2.7-requirements.txt``, ``macos-py3.6-requirements.txt``, etc.).
+(ex: ``win32-py3.7-requirements.txt``, ``macos-py3.6-requirements.txt``, etc.).
 
 
 Cross-environment usage of ``requirements.in``/``requirements.txt`` and ``pip-compile``
@@ -429,7 +466,7 @@ Cross-environment usage of ``requirements.in``/``requirements.txt`` and ``pip-co
 
 The dependencies of a package can change depending on the Python environment in which it
 is installed.  Here, we define a Python environment as the combination of Operating
-System, Python version (2.7, 3.6, etc.), and Python implementation (CPython, PyPy,
+System, Python version (3.6, 3.7, etc.), and Python implementation (CPython, PyPy,
 etc.). For an exact definition, refer to the possible combinations of `PEP 508
 environment markers`_.
 
@@ -469,8 +506,10 @@ Deprecations
 
 This section lists ``pip-tools`` features that are currently deprecated.
 
-- ``--index/--no-index`` command-line options, use instead
-  ``--emit-index-url/--no-emit-index-url`` (since 5.2.0).
+- In future versions, the ``--allow-unsafe`` behavior will be enabled by
+  default. Use ``--no-allow-unsafe`` to keep the old behavior. It is
+  recommended to pass the ``--allow-unsafe`` now to adapt to the upcoming
+  change.
 
 Versions and compatibility
 ==========================
@@ -488,5 +527,7 @@ versions as the required ``pip`` versions.
 +---------------+----------------+----------------+
 | 5.4.0         | 20.1 - 20.3.*  | 2.7, 3.5 - 3.8 |
 +---------------+----------------+----------------+
-| >= 5.5.0      | 20.1 - 20.3.*  | 2.7, 3.5 - 3.9 |
+| 5.5.0         | 20.1 - 20.3.*  | 2.7, 3.5 - 3.9 |
++---------------+----------------+----------------+
+| 6.0.0         | 20.3+          | 3.6 - 3.9      |
 +---------------+----------------+----------------+

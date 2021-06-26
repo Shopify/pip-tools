@@ -23,8 +23,6 @@ jobs:
           - macOS
         python-version:
           - 3.9
-          - 2.7
-          - 3.5
           - 3.6
           - 3.7
           - 3.8
@@ -54,6 +52,30 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Log python version info (${{ matrix.python-version }})
         run: python --version --version
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: >-
+            ${{
+              runner.os == 'Linux' &&
+              '~/.cache/pip'
+              || ''
+            }}${{
+              runner.os == 'macOS' &&
+              '~/Library/Caches/pip'
+              || ''
+            }}${{
+              runner.os == 'Windows' &&
+              '~\AppData\Local\pip\Cache'
+              || ''
+            }}
+          key: >-
+            ${{ runner.os }}-pip-${{ hashFiles('setup.cfg') }}-${{
+            hashFiles('setup.py') }}-${{ hashFiles('tox.ini') }}-${{
+            hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
       - name: Install test dependencies
         run: python -m pip install -U tox virtualenv
       - name: Prepare test environment
@@ -65,3 +87,35 @@ jobs:
         with:
           file: ./coverage.xml
           name: ${{ runner.os }}-${{ matrix.python-version }}-${{ matrix.pip-version }}
+
+  pypy:
+    name: ${{ matrix.os }} / ${{ matrix.python-version }} / ${{ matrix.pip-version }}
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - Ubuntu
+          - MacOS
+          # TODO: fix test_realistic_complex_sub_dependencies test on Windows
+          # - Windows
+        python-version:
+          - pypy-3.7
+        pip-version:
+          - latest
+    env:
+      PY_COLORS: 1
+      TOXENV: pip${{ matrix.pip-version }}
+      TOX_PARALLEL_NO_SPINNER: 1
+    steps:
+      - uses: actions/checkout@master
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install tox
+        run: pip install tox
+      - name: Prepare test environment
+        run: tox --notest -p auto --parallel-live
+      - name: Test pip ${{ matrix.pip-version }}
+        run: tox
