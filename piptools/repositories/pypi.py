@@ -74,9 +74,6 @@ class PyPIRepository(BaseRepository):
         # General options (find_links, index_url, extra_index_url, trusted_host,
         # and pre) are deferred to pip.
         self.command: InstallCommand = create_command("install")
-        self.options, _ = self.command.parse_args(pip_args)
-        if self.options.cache_dir:
-            self.options.cache_dir = normalize_path(self.options.cache_dir)
 
         options, _ = self.command.parse_args(pip_args)
         if options.cache_dir:
