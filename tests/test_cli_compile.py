@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 from textwrap import dedent
@@ -12,6 +13,7 @@ from piptools.scripts.compile import cli
 from .constants import MINIMAL_WHEELS_PATH, PACKAGES_PATH
 
 is_pypy = "__pypy__" in sys.builtin_module_names
+is_windows = sys.platform == "win32"
 
 
 @pytest.fixture(autouse=True)
@@ -47,19 +49,19 @@ def test_command_line_overrides_pip_conf(pip_with_index_conf, runner):
         pytest.param("small-fake-a==0.1", "small-fake-a==0.1", id="regular"),
         pytest.param(
             "pip-tools @ https://github.com/jazzband/pip-tools/archive/7d86c8d3.zip",
-            "https://github.com/jazzband/pip-tools/archive/7d86c8d3.zip",
+            "pip-tools @ https://github.com/jazzband/pip-tools/archive/7d86c8d3.zip",
             id="zip URL",
         ),
         pytest.param(
             "pip-tools @ git+https://github.com/jazzband/pip-tools@7d86c8d3",
-            "git+https://github.com/jazzband/pip-tools@7d86c8d3",
+            "pip-tools @ git+https://github.com/jazzband/pip-tools@7d86c8d3",
             id="scm URL",
         ),
         pytest.param(
             "pip-tools @ https://files.pythonhosted.org/packages/06/96/"
             "89872db07ae70770fba97205b0737c17ef013d0d1c790"
             "899c16bb8bac419/pip_tools-3.6.1-py2.py3-none-any.whl",
-            "https://files.pythonhosted.org/packages/06/96/"
+            "pip-tools @ https://files.pythonhosted.org/packages/06/96/"
             "89872db07ae70770fba97205b0737c17ef013d0d1c790"
             "899c16bb8bac419/pip_tools-3.6.1-py2.py3-none-any.whl",
             id="wheel URL",
@@ -347,6 +349,9 @@ def test_emit_index_url_option(runner, option, expected_output):
 
 
 @pytest.mark.network
+@pytest.mark.xfail(
+    is_pypy and is_windows, reason="https://github.com/jazzband/pip-tools/issues/1148"
+)
 def test_realistic_complex_sub_dependencies(runner):
     wheels_dir = "wheels"
 
@@ -474,7 +479,7 @@ def test_editable_package_in_constraints(pip_conf, runner, req_editable):
 @pytest.mark.network
 def test_editable_package_vcs(runner):
     vcs_package = (
-        "git+git://github.com/jazzband/pip-tools@"
+        "git+https://github.com/jazzband/pip-tools@"
         "f97e62ecb0d9b70965c8eff952c001d8e2722e94"
         "#egg=pip-tools"
     )
@@ -514,26 +519,34 @@ def test_locally_available_editable_package_is_not_archived_in_cache_dir(
 @pytest.mark.parametrize(
     ("line", "dependency"),
     (
-        # zip URL
         # use pip-tools version prior to its use of setuptools_scm,
         # which is incompatible with https: install
-        (
+        pytest.param(
             "https://github.com/jazzband/pip-tools/archive/"
             "7d86c8d3ecd1faa6be11c7ddc6b29a30ffd1dae3.zip",
             "\nclick==",
+            id="Zip URL",
         ),
-        # scm URL
-        (
-            "git+git://github.com/jazzband/pip-tools@"
+        pytest.param(
+            "git+https://github.com/jazzband/pip-tools@"
             "7d86c8d3ecd1faa6be11c7ddc6b29a30ffd1dae3",
             "\nclick==",
+            id="VCS URL",
         ),
-        # wheel URL
-        (
+        pytest.param(
             "https://files.pythonhosted.org/packages/06/96/"
             "89872db07ae70770fba97205b0737c17ef013d0d1c790"
             "899c16bb8bac419/pip_tools-3.6.1-py2.py3-none-any.whl",
             "\nclick==",
+            id="Wheel URL",
+        ),
+        pytest.param(
+            "pytest-django @ git+https://github.com/pytest-dev/pytest-django"
+            "@21492afc88a19d4ca01cd0ac392a5325b14f95c7"
+            "#egg=pytest-django",
+            "pytest-django @ git+https://github.com/pytest-dev/pytest-django"
+            "@21492afc88a19d4ca01cd0ac392a5325b14f95c7",
+            id="VCS with direct reference and egg",
         ),
     ),
 )
@@ -552,8 +565,7 @@ def test_url_package(runner, line, dependency, generate_hashes):
 @pytest.mark.parametrize(
     ("line", "dependency", "rewritten_line"),
     (
-        # file:// wheel URL
-        (
+        pytest.param(
             path_to_url(
                 os.path.join(
                     MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
@@ -561,16 +573,15 @@ def test_url_package(runner, line, dependency, generate_hashes):
             ),
             "\nsmall-fake-a==0.1",
             None,
+            id="Wheel URI",
         ),
-        # file:// directory
-        (
+        pytest.param(
             path_to_url(os.path.join(PACKAGES_PATH, "small_fake_with_deps")),
             "\nsmall-fake-a==0.1",
             None,
+            id="Local project URI",
         ),
-        # bare path
-        # will be rewritten to file:// URL
-        (
+        pytest.param(
             os.path.join(
                 MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
             ),
@@ -580,11 +591,41 @@ def test_url_package(runner, line, dependency, generate_hashes):
                     MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
                 )
             ),
+            id="Bare path to file URI",
+        ),
+        pytest.param(
+            os.path.join(
+                MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
+            ),
+            "\nsmall-fake-with-deps @ "
+            + path_to_url(
+                os.path.join(
+                    MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
+                )
+            ),
+            "\nsmall-fake-with-deps @ "
+            + path_to_url(
+                os.path.join(
+                    MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
+                )
+            ),
+            id="Local project with absolute URI",
+        ),
+        pytest.param(
+            path_to_url(os.path.join(PACKAGES_PATH, "small_fake_with_subdir"))
+            + "#subdirectory=subdir&egg=small_fake_a",
+            "small-fake-a @ "
+            + path_to_url(os.path.join(PACKAGES_PATH, "small_fake_with_subdir"))
+            + "#subdirectory=subdir",
+            "small-fake-a @ "
+            + path_to_url(os.path.join(PACKAGES_PATH, "small_fake_with_subdir"))
+            + "#subdirectory=subdir",
+            id="Local project with subdirectory",
         ),
     ),
 )
 @pytest.mark.parametrize("generate_hashes", ((True,), (False,)))
-def test_local_url_package(
+def test_local_file_uri_package(
     pip_conf, runner, line, dependency, rewritten_line, generate_hashes
 ):
     if rewritten_line is None:
@@ -597,6 +638,33 @@ def test_local_url_package(
     assert out.exit_code == 0
     assert rewritten_line in out.stderr
     assert dependency in out.stderr
+
+
+def test_relative_file_uri_package(pip_conf, runner):
+    # Copy wheel into temp dir
+    shutil.copy(
+        os.path.join(
+            MINIMAL_WHEELS_PATH, "small_fake_with_deps-0.1-py2.py3-none-any.whl"
+        ),
+        ".",
+    )
+    with open("requirements.in", "w") as req_in:
+        req_in.write("file:small_fake_with_deps-0.1-py2.py3-none-any.whl")
+    out = runner.invoke(cli, ["-n", "--rebuild"])
+    assert out.exit_code == 0
+    assert "file:small_fake_with_deps-0.1-py2.py3-none-any.whl" in out.stderr
+
+
+def test_direct_reference_with_extras(runner):
+    with open("requirements.in", "w") as req_in:
+        req_in.write(
+            "piptools[testing,coverage] @ git+https://github.com/jazzband/pip-tools@6.2.0"
+        )
+    out = runner.invoke(cli, ["-n", "--rebuild"])
+    assert out.exit_code == 0
+    assert "pip-tools @ git+https://github.com/jazzband/pip-tools@6.2.0" in out.stderr
+    assert "pytest==" in out.stderr
+    assert "pytest-cov==" in out.stderr
 
 
 def test_input_file_without_extension(pip_conf, runner):
@@ -785,8 +853,8 @@ def test_generate_hashes_with_url(runner):
         )
     out = runner.invoke(cli, ["--no-annotate", "--generate-hashes"])
     expected = (
-        "https://github.com/jazzband/pip-tools/archive/"
-        "7d86c8d3ecd1faa6be11c7ddc6b29a30ffd1dae3.zip#egg=pip-tools \\\n"
+        "pip-tools @ https://github.com/jazzband/pip-tools/archive/"
+        "7d86c8d3ecd1faa6be11c7ddc6b29a30ffd1dae3.zip \\\n"
         "    --hash=sha256:d24de92e18ad5bf291f25cfcdcf"
         "0171be6fa70d01d0bef9eeda356b8549715e7\n"
     )
@@ -830,7 +898,7 @@ def test_generate_hashes_with_annotations(runner):
 
 
 @pytest.mark.network
-def test_generate_hashes_with_long_annotations(runner):
+def test_generate_hashes_with_split_style_annotations(runner):
     with open("requirements.in", "w") as fp:
         fp.write("Django==1.11.29\n")
         fp.write("django-debug-toolbar==1.11\n")
@@ -839,7 +907,7 @@ def test_generate_hashes_with_long_annotations(runner):
         fp.write("pytz==2020.4\n")
         fp.write("sqlparse==0.3.1\n")
 
-    out = runner.invoke(cli, ["--generate-hashes"])
+    out = runner.invoke(cli, ["--generate-hashes", "--annotation-style", "split"])
     assert out.stderr == dedent(
         f"""\
         #
@@ -881,6 +949,54 @@ def test_generate_hashes_with_long_annotations(runner):
             # via
             #   -r requirements.in
             #   django-debug-toolbar
+        """
+    )
+
+
+@pytest.mark.network
+def test_generate_hashes_with_line_style_annotations(runner):
+    with open("requirements.in", "w") as fp:
+        fp.write("Django==1.11.29\n")
+        fp.write("django-debug-toolbar==1.11\n")
+        fp.write("django-storages==1.9.1\n")
+        fp.write("django-taggit==0.24.0\n")
+        fp.write("pytz==2020.4\n")
+        fp.write("sqlparse==0.3.1\n")
+
+    out = runner.invoke(cli, ["--generate-hashes", "--annotation-style", "line"])
+    assert out.stderr == dedent(
+        f"""\
+        #
+        # This file is autogenerated by pip-compile with python \
+{sys.version_info.major}.{sys.version_info.minor}
+        # To update, run:
+        #
+        #    pip-compile --annotation-style=line --generate-hashes
+        #
+        django==1.11.29 \\
+            --hash=sha256:014e3392058d94f40569206a24523ce254d55ad2f9f46c6550b0fe2e4f94cf3f \\
+            --hash=sha256:4200aefb6678019a0acf0005cd14cfce3a5e6b9b90d06145fcdd2e474ad4329c
+            # via -r requirements.in, django-debug-toolbar, django-storages, django-taggit
+        django-debug-toolbar==1.11 \\
+            --hash=sha256:89d75b60c65db363fb24688d977e5fbf0e73386c67acf562d278402a10fc3736 \\
+            --hash=sha256:c2b0134119a624f4ac9398b44f8e28a01c7686ac350a12a74793f3dd57a9eea0
+            # via -r requirements.in
+        django-storages==1.9.1 \\
+            --hash=sha256:3103991c2ee8cef8a2ff096709973ffe7106183d211a79f22cf855f33533d924 \\
+            --hash=sha256:a59e9923cbce7068792f75344ed7727021ee4ac20f227cf17297d0d03d141e91
+            # via -r requirements.in
+        django-taggit==0.24.0 \\
+            --hash=sha256:710b4d15ec1996550cc68a0abbc41903ca7d832540e52b1336e6858737e410d8 \\
+            --hash=sha256:bb8f27684814cd1414b2af75b857b5e26a40912631904038a7ecacd2bfafc3ac
+            # via -r requirements.in
+        pytz==2020.4 \\
+            --hash=sha256:3e6b7dd2d1e0a59084bcee14a17af60c5c562cdc16d828e8eba2e683d3a7e268 \\
+            --hash=sha256:5c55e189b682d420be27c6995ba6edce0c0a77dd67bfbe2ae6607134d5851ffd
+            # via -r requirements.in, django
+        sqlparse==0.3.1 \\
+            --hash=sha256:022fb9c87b524d1f7862b3037e541f68597a730a8843245c349fc93e1643dc4e \\
+            --hash=sha256:e162203737712307dfe78860cc56c8da8a852ab2ee33750e33aeadf38d12c548
+            # via -r requirements.in, django-debug-toolbar
         """
     )
 
@@ -1019,10 +1135,10 @@ def test_multiple_input_files_without_output_file(runner):
 
 
 @pytest.mark.parametrize(
-    ("option", "expected"),
+    ("options", "expected"),
     (
         pytest.param(
-            "--annotate",
+            ("--annotate",),
             f"""\
             #
             # This file is autogenerated by pip-compile with python \
@@ -1042,7 +1158,23 @@ def test_multiple_input_files_without_output_file(runner):
             id="annotate",
         ),
         pytest.param(
-            "--no-annotate",
+            ("--annotate", "--annotation-style", "line"),
+            f"""\
+            #
+            # This file is autogenerated by pip-compile with python \
+{sys.version_info.major}.{sys.version_info.minor}
+            # To update, run:
+            #
+            #    pip-compile --annotation-style=line --no-emit-find-links
+            #
+            small-fake-a==0.1         # via -c constraints.txt, small-fake-with-deps
+            small-fake-with-deps==0.1  # via -r requirements.in
+            Dry-run, so nothing updated.
+            """,
+            id="annotate line style",
+        ),
+        pytest.param(
+            ("--no-annotate",),
             f"""\
             #
             # This file is autogenerated by pip-compile with python \
@@ -1060,9 +1192,9 @@ def test_multiple_input_files_without_output_file(runner):
     ),
 )
 @pytest.mark.xfail(reason="Must be fixed")
-def test_annotate_option(pip_conf, runner, option, expected):
+def test_annotate_option(pip_conf, runner, options, expected):
     """
-    The output lines has have annotations if option is turned on.
+    The output lines have annotations if the option is turned on.
     """
     with open("constraints.txt", "w") as constraints_in:
         constraints_in.write("small-fake-a==0.1")
@@ -1070,7 +1202,7 @@ def test_annotate_option(pip_conf, runner, option, expected):
         req_in.write("-c constraints.txt\n")
         req_in.write("small_fake_with_deps")
 
-    out = runner.invoke(cli, [option, "-n", "--no-emit-find-links"])
+    out = runner.invoke(cli, [*options, "-n", "--no-emit-find-links"])
 
     assert out.stderr == dedent(expected)
     assert out.exit_code == 0
@@ -1604,6 +1736,38 @@ def test_duplicate_reqs_combined(
     assert "test-package-1==0.1" in out.stderr
 
 
+def test_combine_extras(pip_conf, runner, make_package):
+    """
+    Ensure that multiple declarations of a dependency that specify different
+    extras produces a requirement for that package with the union of the extras
+    """
+    package_with_extras = make_package(
+        "package_with_extras",
+        extras_require={
+            "extra1": ["small-fake-a==0.1"],
+            "extra2": ["small-fake-b==0.1"],
+        },
+    )
+
+    with open("requirements.in", "w") as req_in:
+        req_in.writelines(
+            [
+                "-r ./requirements-second.in\n",
+                f"{package_with_extras}[extra1]",
+            ]
+        )
+
+    with open("requirements-second.in", "w") as req_sec_in:
+        req_sec_in.write(f"{package_with_extras}[extra2]")
+
+    out = runner.invoke(cli, ["-n"])
+
+    assert out.exit_code == 0
+    assert "package-with-extras" in out.stderr
+    assert "small-fake-a==" in out.stderr
+    assert "small-fake-b==" in out.stderr
+
+
 @pytest.mark.parametrize(
     ("pkg2_install_requires", "req_in_content", "out_expected_content"),
     (
@@ -1810,9 +1974,16 @@ def test_one_extra(fake_dists, runner, make_module, fname, content):
 
 
 @pytest.mark.network
+@pytest.mark.parametrize(
+    "extra_opts",
+    (
+        pytest.param(("--extra", "dev", "--extra", "test"), id="singular"),
+        pytest.param(("--extra", "dev,test"), id="comma-separated"),
+    ),
+)
 @pytest.mark.parametrize(("fname", "content"), METADATA_TEST_CASES)
 @pytest.mark.xfail(is_pypy, reason="https://github.com/jazzband/pip-tools/issues/1375")
-def test_multiple_extras(fake_dists, runner, make_module, fname, content):
+def test_multiple_extras(fake_dists, runner, make_module, fname, content, extra_opts):
     """
     Test passing multiple `--extra` params.
     """
@@ -1821,10 +1992,7 @@ def test_multiple_extras(fake_dists, runner, make_module, fname, content):
         cli,
         [
             "-n",
-            "--extra",
-            "dev",
-            "--extra",
-            "test",
+            *extra_opts,
             "--find-links",
             fake_dists,
             meta_path,

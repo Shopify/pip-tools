@@ -32,9 +32,98 @@ def test_format_requirement(from_line):
     assert format_requirement(ireq) == "test==1.2"
 
 
-def test_format_requirement_url(from_line):
-    ireq = from_line("https://example.com/example.zip")
-    assert format_requirement(ireq) == "https://example.com/example.zip"
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    (
+        pytest.param(
+            "https://example.com/example.zip",
+            "https://example.com/example.zip",
+            id="simple url",
+        ),
+        pytest.param(
+            "example @ https://example.com/example.zip",
+            "example @ https://example.com/example.zip",
+            id="direct reference",
+        ),
+        pytest.param(
+            "Example @ https://example.com/example.zip",
+            "example @ https://example.com/example.zip",
+            id="direct reference lowered case",
+        ),
+        pytest.param(
+            "example @ https://example.com/example.zip#egg=example",
+            "example @ https://example.com/example.zip",
+            id="direct reference with egg in fragment",
+        ),
+        pytest.param(
+            "example @ https://example.com/example.zip#subdirectory=test&egg=example",
+            "example @ https://example.com/example.zip#subdirectory=test",
+            id="direct reference with subdirectory and egg in fragment",
+        ),
+        pytest.param(
+            "example @ https://example.com/example.zip#subdirectory=test"
+            "&egg=example&sha1=594b7dd32bec37d8bf70a6ffa8866d30e93f3c42",
+            "example @ https://example.com/example.zip#subdirectory=test"
+            "&sha1=594b7dd32bec37d8bf70a6ffa8866d30e93f3c42",
+            id="direct reference with subdirectory, hash and egg in fragment",
+        ),
+        pytest.param(
+            "example @ https://example.com/example.zip?egg=test",
+            "example @ https://example.com/example.zip?egg=test",
+            id="direct reference with egg in query",
+        ),
+        pytest.param(
+            "file:./vendor/package.zip",
+            "file:./vendor/package.zip",
+            id="file scheme relative path",
+        ),
+        pytest.param(
+            "file:vendor/package.zip",
+            "file:vendor/package.zip",
+            id="file scheme relative path",
+        ),
+        pytest.param(
+            "file:vendor/package.zip#egg=example",
+            "file:vendor/package.zip#egg=example",
+            id="file scheme relative path with egg",
+        ),
+        pytest.param(
+            "file:./vendor/package.zip#egg=example",
+            "file:./vendor/package.zip#egg=example",
+            id="file scheme relative path with egg",
+        ),
+        pytest.param(
+            "file:///vendor/package.zip",
+            "file:///vendor/package.zip",
+            id="file scheme absolute path without direct reference",
+        ),
+        pytest.param(
+            "file:///vendor/package.zip#egg=test",
+            "test @ file:///vendor/package.zip",
+            id="file scheme absolute path with egg",
+        ),
+        pytest.param(
+            "package @ file:///vendor/package.zip",
+            "package @ file:///vendor/package.zip",
+            id="file scheme absolute path with direct reference",
+        ),
+        pytest.param(
+            "package @ file:///vendor/package.zip#egg=example",
+            "package @ file:///vendor/package.zip",
+            id="file scheme absolute path with direct reference and egg",
+        ),
+        pytest.param(
+            "package @ file:///vendor/package.zip#egg=example&subdirectory=test"
+            "&sha1=594b7dd32bec37d8bf70a6ffa8866d30e93f3c42",
+            "package @ file:///vendor/package.zip#subdirectory=test"
+            "&sha1=594b7dd32bec37d8bf70a6ffa8866d30e93f3c42",
+            id="full path with direct reference, egg, subdirectory and hash",
+        ),
+    ),
+)
+def test_format_requirement_url(from_line, line, expected):
+    ireq = from_line(line)
+    assert format_requirement(ireq) == expected
 
 
 def test_format_requirement_editable_vcs(from_editable):
@@ -185,7 +274,7 @@ def test_is_pinned_requirement_editable(from_editable):
         ("file:///example.zip", True),
         ("https://example.com/example.zip", True),
         ("https://example.com/example.zip#egg=example", True),
-        ("git+git://github.com/jazzband/pip-tools@master", True),
+        ("git+https://github.com/jazzband/pip-tools@master", True),
     ),
 )
 def test_is_url_requirement(caplog, from_line, line, expected):

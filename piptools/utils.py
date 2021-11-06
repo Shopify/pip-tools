@@ -3,6 +3,7 @@ import itertools
 import json
 import os
 import shlex
+import typing
 from typing import (
     Callable,
     Dict,
@@ -14,6 +15,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    cast,
 )
 
 import click
@@ -25,7 +27,7 @@ from pip._internal.vcs import is_url
 from pip._vendor.packaging.markers import Marker
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.version import Version
-from pip._vendor.pkg_resources import get_distribution
+from pip._vendor.pkg_resources import Distribution, Requirement, get_distribution
 
 from piptools.subprocess_utils import run_python_snippet
 
@@ -55,7 +57,9 @@ def key_from_ireq(ireq: InstallRequirement) -> str:
         return key_from_req(ireq.req)
 
 
-def key_from_req(req: InstallRequirement) -> str:
+def key_from_req(
+    req: typing.Union[InstallRequirement, Distribution, Requirement]
+) -> str:
     """Get an all-lowercase version of the requirement's name."""
     if hasattr(req, "key"):
         # from pkg_resources, such as installed dists for pip-sync
@@ -115,7 +119,7 @@ def format_requirement(
     if ireq.editable:
         line = f"-e {ireq.link.url}"
     elif is_url_requirement(ireq):
-        line = ireq.link.url
+        line = _build_direct_reference_best_efforts(ireq)
     else:
         # FIXME: a dirty hack, must be canonicalized in a some better way
         line = str(ireq.req).replace("_", "-").lower()
@@ -128,6 +132,38 @@ def format_requirement(
             line += f" \\\n    --hash={hash_}"
 
     return line
+
+
+def _build_direct_reference_best_efforts(ireq: InstallRequirement) -> str:
+    """
+    Returns a string of a direct reference URI, whenever possible.
+    See https://www.python.org/dev/peps/pep-0508/
+    """
+    # If the requirement has no name then we cannot build a direct reference.
+    if not ireq.name:
+        return cast(str, ireq.link.url)
+
+    # Look for a relative file path, the direct reference currently does not work with it.
+    if ireq.link.is_file and not ireq.link.path.startswith("/"):
+        return cast(str, ireq.link.url)
+
+    # If we get here then we have a requirement that supports direct reference.
+    # We need to remove the egg if it exists and keep the rest of the fragments.
+    direct_reference = f"{ireq.name.lower()} @ {ireq.link.url_without_fragment}"
+    fragments = []
+
+    # Check if there is any fragment to add to the URI.
+    if ireq.link.subdirectory_fragment:
+        fragments.append(f"subdirectory={ireq.link.subdirectory_fragment}")
+
+    if ireq.link.has_hash:
+        fragments.append(f"{ireq.link.hash_name}={ireq.link.hash}")
+
+    # Then add the fragments into the URI, if any.
+    if fragments:
+        direct_reference += f"#{'&'.join(fragments)}"
+
+    return direct_reference
 
 
 def format_specifier(ireq: InstallRequirement) -> str:
