@@ -73,7 +73,7 @@ class PyPIRepository(BaseRepository):
         # Use pip's parser for pip.conf management and defaults.
         # General options (find_links, index_url, extra_index_url, trusted_host,
         # and pre) are deferred to pip.
-        self.command: InstallCommand = create_command("install")
+        self._command: InstallCommand = create_command("install")
 
         options, _ = self.command.parse_args(pip_args)
         if options.cache_dir:
@@ -118,6 +118,10 @@ class PyPIRepository(BaseRepository):
     @property
     def finder(self) -> PackageFinder:
         return self._finder
+
+    @property
+    def command(self) -> InstallCommand:
+        return self._command
 
     def find_all_candidates(self, req_name: str) -> List[InstallationCandidate]:
         if req_name not in self._available_candidates_cache:

@@ -273,7 +273,7 @@ def cli(
     emit_find_links: bool,
     cache_dir: str,
     pip_args_str: Optional[str],
-    new_resolver,
+    new_resolver: bool,
     emit_index_url: bool,
     emit_options: bool,
 ) -> None:

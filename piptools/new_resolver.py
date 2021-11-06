@@ -1,35 +1,42 @@
+from typing import Any, Dict, Iterable, Set
+
 from pip._internal.cache import WheelCache
+from pip._internal.req import InstallRequirement
 from pip._internal.req.req_tracker import get_requirement_tracker
 from pip._internal.utils.logging import indent_log
 from pip._internal.utils.temp_dir import TempDirectory, global_tempdir_manager
 from pip._vendor.packaging.specifiers import SpecifierSet
 
 from piptools.logging import log
+from piptools.repositories.base import BaseRepository
 
 
-class NewResolver(object):
+class NewResolver:
     # FIXME: needs appropriate module and name
-    def __init__(self, constraints, repository, **kwargs):
+    def __init__(
+        self,
+        constraints: Iterable[InstallRequirement],
+        repository: BaseRepository,
+        **kwargs: Any,
+    ) -> None:
         self.constraints = constraints
         self.repository = repository
-        self.unsafe_constraints = set()
+        self.unsafe_constraints: Set[InstallRequirement] = set()
 
         self.options = self.repository.options
         self.session = self.repository.session
         self.finder = self.repository.finder
         self.command = self.repository.command
 
-    def resolve(self, max_rounds=None):
+    def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
         with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log():
 
             wheel_cache = WheelCache(
                 self.options.cache_dir, self.options.format_control
             )
 
-            build_delete = not (self.options.no_clean or self.options.build_dir)
             temp_dir = TempDirectory(
-                self.options.build_dir,
-                delete=build_delete,
+                delete=not self.options.no_clean,
                 kind="resolve",
                 globally_managed=True,
             )
@@ -72,7 +79,7 @@ class NewResolver(object):
             ireq = candidate.get_install_requirement()
             if ireq is None:
                 continue
-            ireq.req.specifier = SpecifierSet("=={}".format(candidate.version))
+            ireq.req.specifier = SpecifierSet(f"=={candidate.version}")
 
             # FIXME: use graph in output writer?
             ireq._required_by = tuple(
@@ -85,7 +92,9 @@ class NewResolver(object):
 
         return reqs
 
-    def resolve_hashes(self, ireqs):
+    def resolve_hashes(
+        self, ireqs: Set[InstallRequirement]
+    ) -> Dict[InstallRequirement, Set[str]]:
         """
         Finds acceptable hashes for all of the given InstallRequirements.
         """
