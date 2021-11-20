@@ -1813,7 +1813,6 @@ def test_combine_extras(pip_conf, runner, make_package):
         ),
     ),
 )
-@pytest.mark.xfail(reason="Must be fixed")
 def test_triple_equal_pinned_dependency_is_used(
     runner,
     make_package,

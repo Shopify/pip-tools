@@ -86,7 +86,17 @@ class NewResolver:
             ireq = candidate.get_install_requirement()
             if ireq is None:
                 continue
-            ireq.req.specifier = SpecifierSet(f"=={candidate.version}")
+
+            version_pin_operator = "=="
+            version_as_str = str(candidate.version)
+            for specifier in ireq.specifier:
+                if specifier.operator == "===" and specifier.version == version_as_str:
+                    version_pin_operator = "==="
+                    break
+
+            ireq.req.specifier = SpecifierSet(
+                f"{version_pin_operator}{candidate.version}"
+            )
 
             # FIXME: use graph in output writer?
             required_by = tuple(
