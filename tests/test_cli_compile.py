@@ -1227,12 +1227,12 @@ def test_annotate_option(pip_conf, runner, options, expected):
         (None, "# small-fake-a"),
     ),
 )
-@pytest.mark.xfail(reason="Must be fixed")
 def test_allow_unsafe_option(pip_conf, monkeypatch, runner, option, expected):
     """
     Unsafe packages are printed as expected with and without --allow-unsafe.
     """
     monkeypatch.setattr("piptools.resolver.UNSAFE_PACKAGES", {"small-fake-a"})
+    monkeypatch.setattr("piptools.new_resolver.UNSAFE_PACKAGES", {"small-fake-a"})
     with open("requirements.in", "w") as req_in:
         req_in.write(path_to_url(os.path.join(PACKAGES_PATH, "small_fake_with_deps")))
 

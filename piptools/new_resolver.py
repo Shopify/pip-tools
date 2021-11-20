@@ -12,6 +12,7 @@ from pip._vendor.packaging.specifiers import SpecifierSet
 
 from piptools.logging import log
 from piptools.repositories.base import BaseRepository
+from piptools.utils import UNSAFE_PACKAGES
 
 
 class NewResolver:
@@ -20,16 +21,18 @@ class NewResolver:
         self,
         constraints: Iterable[InstallRequirement],
         repository: BaseRepository,
+        allow_unsafe: bool = False,
         **kwargs: Any,
     ) -> None:
         self.constraints = constraints
         self.repository = repository
-        self.unsafe_constraints: Set[InstallRequirement] = set()
+        self.allow_unsafe = allow_unsafe
 
         self.options = self.repository.options
         self.session = self.repository.session
         self.finder = self.repository.finder
         self.command = self.repository.command
+        self.unsafe_constraints: Set[InstallRequirement] = set()
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
         with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log(), update_env_context_manager(  # noqa: E501
@@ -86,12 +89,21 @@ class NewResolver:
             ireq.req.specifier = SpecifierSet(f"=={candidate.version}")
 
             # FIXME: use graph in output writer?
-            ireq._required_by = tuple(
+            required_by = tuple(
                 parent_name
                 for parent_name in resolver._result.graph.iter_parents(name)
                 if parent_name is not None
             )
 
+            # Filter out unsafe requirements. This logic is incomplete, as it would
+            # fail to filter sub-sub-dependencies of unsafe packages. None of the
+            # UNSAFE_PACKAGES currently have any dependencies at all (which makes sense
+            # for installation tools) so this seems sufficient.
+            if not self.allow_unsafe and ireq.name in UNSAFE_PACKAGES:
+                self.unsafe_constraints.add(ireq)
+                continue
+
+            ireq._required_by = required_by
             reqs.add(ireq)
 
         return reqs
