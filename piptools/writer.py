@@ -290,6 +290,8 @@ class OutputWriter:
                 sep = "\n    " if ireq_hashes else "  "
             else:  # pragma: no cover
                 raise ValueError("Invalid value for annotation style")
+            if self.strip_extras:
+                annotation = re.sub(r"\[.+?\]", "", annotation)
             # 24 is one reasonable column size to use here, that we've used in the past
             lines = f"{line:24}{sep}{comment(annotation)}".splitlines()
             line = "\n".join(ln.rstrip() for ln in lines)

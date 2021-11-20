@@ -2,7 +2,10 @@ from typing import Any, Dict, Iterable, Set
 
 from pip._internal.cache import WheelCache
 from pip._internal.req import InstallRequirement
-from pip._internal.req.req_tracker import get_requirement_tracker
+from pip._internal.req.req_tracker import (
+    get_requirement_tracker,
+    update_env_context_manager,
+)
 from pip._internal.utils.logging import indent_log
 from pip._internal.utils.temp_dir import TempDirectory, global_tempdir_manager
 from pip._vendor.packaging.specifiers import SpecifierSet
@@ -29,8 +32,9 @@ class NewResolver:
         self.command = self.repository.command
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
-        with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log():
-
+        with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log(), update_env_context_manager(  # noqa: E501
+            PIP_EXISTS_ACTION="i"
+        ):
             wheel_cache = WheelCache(
                 self.options.cache_dir, self.options.format_control
             )
