@@ -1712,7 +1712,6 @@ def test_prefer_binary_dist_even_there_is_source_dists(
 
 
 @pytest.mark.parametrize("output_content", ("test-package-1==0.1", ""))
-@pytest.mark.xfail(reason="Must be fixed")
 def test_duplicate_reqs_combined(
     pip_conf, make_package, make_sdist, tmpdir, runner, output_content
 ):
