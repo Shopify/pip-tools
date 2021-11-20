@@ -496,7 +496,7 @@ def test_editable_package_vcs(runner):
     )
     with open("requirements.in", "w") as req_in:
         req_in.write("-e " + vcs_package)
-    out = runner.invoke(cli, ["-n", "--rebuild"], catch_exceptions=False)
+    out = runner.invoke(cli, ["-n", "--rebuild"])
     assert out.exit_code == 0
     assert vcs_package in out.stderr
     assert "click" in out.stderr  # dependency of pip-tools
@@ -733,9 +733,7 @@ def test_upgrade_packages_option_no_existing_file(pip_conf, runner):
     with open("requirements.in", "w") as req_in:
         req_in.write("small-fake-a\nsmall-fake-b")
 
-    out = runner.invoke(
-        cli, ["--no-annotate", "-P", "small-fake-b", "--no-header", "--no-emit-options"]
-    )
+    out = runner.invoke(cli, ["--no-annotate", "-P", "small-fake-b"])
 
     assert out.exit_code == 0
     assert "small-fake-a==0.2" in out.stderr.splitlines()
@@ -760,16 +758,7 @@ def test_upgrade_packages_version_option(
     with open("requirements.txt", "w") as req_in:
         req_in.write("small-fake-a==0.1\n" + current_package)
 
-    out = runner.invoke(
-        cli,
-        [
-            "--no-annotate",
-            "--upgrade-package",
-            upgraded_package,
-            "--rebuild",
-            "--verbose",
-        ],
-    )
+    out = runner.invoke(cli, ["--no-annotate", "--upgrade-package", upgraded_package])
 
     assert out.exit_code == 0
     stderr_lines = out.stderr.splitlines()
@@ -784,7 +773,7 @@ def test_upgrade_packages_version_option_no_existing_file(pip_conf, runner):
     with open("requirements.in", "w") as req_in:
         req_in.write("small-fake-a\nsmall-fake-b")
 
-    out = runner.invoke(cli, ["-P", "small-fake-b==0.2", "--rebuild", "--verbose"])
+    out = runner.invoke(cli, ["-P", "small-fake-b==0.2"])
 
     assert out.exit_code == 0
     assert "small-fake-a==0.2" in out.stderr
@@ -1751,7 +1740,7 @@ def test_duplicate_reqs_combined(
         with open("requirements.txt", "w") as reqs_out:
             reqs_out.write(output_content)
 
-    out = runner.invoke(cli, ["--find-links", str(dists_dir), "--verbose"])
+    out = runner.invoke(cli, ["--find-links", str(dists_dir)])
 
     assert out.exit_code == 0, out
     assert str(test_package_2) in out.stderr
