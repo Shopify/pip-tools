@@ -9,6 +9,7 @@ from textwrap import dedent
 
 import pytest
 from click.testing import CliRunner
+from pip._internal.commands.install import InstallCommand
 from pip._internal.index.package_finder import PackageFinder
 from pip._internal.models.candidate import InstallationCandidate
 from pip._internal.network.session import PipSession
@@ -99,6 +100,10 @@ class FakeRepository(BaseRepository):
 
     @property
     def finder(self) -> PackageFinder:
+        """Not used"""
+
+    @property
+    def command(self) -> InstallCommand:
         """Not used"""
 
 
