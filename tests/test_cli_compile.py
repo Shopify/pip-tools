@@ -6,7 +6,6 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from pip._internal.utils.packaging import get_requirement
 from pip._internal.utils.urls import path_to_url
 
 from piptools.scripts.compile import cli
@@ -25,7 +24,12 @@ def _temp_dep_cache(tmpdir, monkeypatch):
 @pytest.fixture(autouse=True)
 def _clear_get_requirements_lru_cache():
     # FIXME: report to pip to remove cache decorator
-    get_requirement.cache_clear()
+    try:
+        from pip._internal.utils.packaging import get_requirement
+    except ImportError:
+        pass
+    else:
+        get_requirement.cache_clear()
 
 
 def test_default_pip_conf_read(pip_with_index_conf, runner):
