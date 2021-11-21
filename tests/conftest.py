@@ -24,7 +24,7 @@ from piptools.cache import DependencyCache
 from piptools.exceptions import NoCandidateFound
 from piptools.repositories import PyPIRepository
 from piptools.repositories.base import BaseRepository
-from piptools.resolver import Resolver
+from piptools.resolver import LegacyResolver
 from piptools.utils import (
     as_tuple,
     is_url_requirement,
@@ -159,12 +159,14 @@ def resolver(depcache, repository):
     # TODO: It'd be nicer if Resolver instance could be set up and then
     #       use .resolve(...) on the specset, instead of passing it to
     #       the constructor like this (it's not reusable)
-    return partial(Resolver, repository=repository, cache=depcache)
+    return partial(
+        LegacyResolver, repository=repository, cache=depcache, existing_constraints={}
+    )
 
 
 @pytest.fixture
 def base_resolver(depcache):
-    return partial(Resolver, cache=depcache)
+    return partial(LegacyResolver, cache=depcache, existing_constraints={})
 
 
 @pytest.fixture

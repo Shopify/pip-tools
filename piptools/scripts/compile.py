@@ -18,10 +18,9 @@ from ..cache import DependencyCache
 from ..exceptions import PipToolsError
 from ..locations import CACHE_DIR
 from ..logging import log
-from ..new_resolver import NewResolver
 from ..repositories import LocalRequirementsRepository, PyPIRepository
 from ..repositories.base import BaseRepository
-from ..resolver import Resolver
+from ..resolver import LegacyResolver, Resolver
 from ..utils import (
     UNSAFE_PACKAGES,
     dedup,
@@ -465,26 +464,14 @@ def cli(
             for find_link in dedup(repository.finder.find_links):
                 log.debug(redact_auth_from_url(find_link))
 
-    resolver_cls = NewResolver if new_resolver else Resolver
-
-    if new_resolver and existing_pins:
-        # Mark direct/primary/user_supplied packages
-        for ireq in constraints:
-            ireq.user_supplied = True
-
-        # Pass compiled requirements from `requirements.txt` as constraints to resolver
-        existing_constraints = list(existing_pins.values())
-        for ireq in existing_constraints:
-            ireq.constraint = True
-            ireq.user_supplied = False
-            ireq._is_existing_pin = True
-
-        constraints.extend(existing_constraints)
-
+    resolver_cls = Resolver if new_resolver else LegacyResolver
     try:
         resolver = resolver_cls(
-            constraints,
-            repository,
+            constraints=constraints,
+            existing_constraints={
+                key_from_ireq(ireq): ireq for ireq in existing_pins.values()
+            },
+            repository=repository,
             prereleases=repository.finder.allow_all_prereleases or pre,
             cache=DependencyCache(cache_dir),
             clear_caches=rebuild,
