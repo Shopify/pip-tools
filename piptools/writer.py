@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import typing
 from itertools import chain
 from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
@@ -45,10 +46,10 @@ MESSAGE_UNINSTALLABLE = (
 strip_comes_from_line_re = re.compile(r" \(line \d+\)$")
 
 
-def _comes_from_as_string(ireq: InstallRequirement) -> str:
-    if isinstance(ireq.comes_from, str):
-        return strip_comes_from_line_re.sub("", ireq.comes_from)
-    return key_from_ireq(ireq.comes_from)
+def _comes_from_as_string(comes_from: typing.Union[str, InstallRequirement]) -> str:
+    if isinstance(comes_from, str):
+        return strip_comes_from_line_re.sub("", comes_from)
+    return key_from_ireq(comes_from)
 
 
 def annotation_style_split(required_by: Set[str]) -> str:
@@ -269,13 +270,13 @@ class OutputWriter:
         required_by = set()
         if hasattr(ireq, "_source_ireqs"):
             required_by |= {
-                _comes_from_as_string(src_ireq)
+                _comes_from_as_string(src_ireq.comes_from)
                 for src_ireq in ireq._source_ireqs
                 if src_ireq.comes_from
             }
 
         if ireq.comes_from:
-            required_by.add(_comes_from_as_string(ireq))
+            required_by.add(_comes_from_as_string(ireq.comes_from))
 
         if hasattr(ireq, "_required_by"):
             for name in ireq._required_by:

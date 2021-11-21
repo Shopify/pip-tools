@@ -477,6 +477,7 @@ def cli(
         for ireq in existing_constraints:
             ireq.constraint = True
             ireq.user_supplied = False
+            ireq._is_existing_pin = True
 
         constraints.extend(existing_constraints)
 

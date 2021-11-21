@@ -12,7 +12,7 @@ from pip._vendor.packaging.specifiers import SpecifierSet
 
 from piptools.logging import log
 from piptools.repositories.base import BaseRepository
-from piptools.utils import UNSAFE_PACKAGES
+from piptools.utils import UNSAFE_PACKAGES, key_from_ireq
 
 
 class NewResolver:
@@ -33,6 +33,8 @@ class NewResolver:
         self.finder = self.repository.finder
         self.command = self.repository.command
         self.unsafe_constraints: Set[InstallRequirement] = set()
+
+        self._constraints_map = {key_from_ireq(ireq): ireq for ireq in constraints}
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
         with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log(), update_env_context_manager(  # noqa: E501
@@ -112,6 +114,13 @@ class NewResolver:
             if not self.allow_unsafe and ireq.name in UNSAFE_PACKAGES:
                 self.unsafe_constraints.add(ireq)
                 continue
+
+            source_ireq = self._constraints_map.get(key_from_ireq(ireq))
+            if source_ireq is not None and (
+                not hasattr(source_ireq, "_is_existing_pin")
+                or not source_ireq._is_existing_pin
+            ):
+                ireq._source_ireqs = [source_ireq]
 
             ireq._required_by = required_by
             reqs.add(ireq)

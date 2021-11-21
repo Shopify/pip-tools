@@ -1202,7 +1202,6 @@ def test_multiple_input_files_without_output_file(runner):
         ),
     ),
 )
-@pytest.mark.xfail(reason="Must be fixed")
 def test_annotate_option(pip_conf, runner, options, expected):
     """
     The output lines have annotations if the option is turned on.
