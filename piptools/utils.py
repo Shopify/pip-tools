@@ -26,6 +26,7 @@ from pip._internal.utils.misc import redact_auth_from_url
 from pip._internal.vcs import is_url
 from pip._vendor.packaging.markers import Marker
 from pip._vendor.packaging.specifiers import SpecifierSet
+from pip._vendor.packaging.utils import canonicalize_name
 from pip._vendor.packaging.version import Version
 from pip._vendor.pkg_resources import Distribution, Requirement, get_distribution
 
@@ -121,8 +122,7 @@ def format_requirement(
     elif is_url_requirement(ireq):
         line = _build_direct_reference_best_efforts(ireq)
     else:
-        # FIXME: a dirty hack, must be canonicalized in a some better way
-        line = str(ireq.req).replace("_", "-").lower()
+        line = _requirement_to_str(ireq.req)
 
     if marker:
         line = f"{line} ; {marker}"
@@ -132,6 +132,23 @@ def format_requirement(
             line += f" \\\n    --hash={hash_}"
 
     return line
+
+
+def _requirement_to_str(req: Requirement) -> str:
+    """
+    Returns a string representation with canonicalized name of a given requirement.
+    Adapted from packaging.requirements.Requirement.__str__().
+    """
+    parts: List[str] = [canonicalize_name(req.name)]
+
+    if req.extras:
+        formatted_extras = ",".join(sorted(req.extras))
+        parts.append(f"[{formatted_extras}]")
+
+    if req.specifier:
+        parts.append(str(req.specifier))
+
+    return "".join(parts)
 
 
 def _build_direct_reference_best_efforts(ireq: InstallRequirement) -> str:
