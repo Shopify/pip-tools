@@ -38,9 +38,11 @@ from .utils import looks_like_ci
 
 
 class FakeOptions:
-    def __init__(self) -> None:
-        self.features_enabled: List[str] = []
-        self.deprecated_features_enabled: List[str] = []
+    def __init__(
+        self, features_enabled: List[str], deprecated_features_enabled: List[str]
+    ) -> None:
+        self.features_enabled = features_enabled
+        self.deprecated_features_enabled = deprecated_features_enabled
 
 
 class FakeRepository(BaseRepository):
@@ -98,7 +100,9 @@ class FakeRepository(BaseRepository):
 
     @property
     def options(self):
-        return FakeOptions()
+        return FakeOptions(
+            features_enabled=[], deprecated_features_enabled=["legacy-resolver"]
+        )
 
     @property
     def session(self) -> PipSession:
