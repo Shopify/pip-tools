@@ -614,19 +614,22 @@ class Resolver(BaseResolver):
                 break
 
         # Override version specifier
-        ireq.req.specifier = SpecifierSet(f"{version_pin_operator}{candidate.version}")
+        pinned_ireq = copy.deepcopy(ireq)
+        pinned_ireq.req.specifier = SpecifierSet(
+            f"{version_pin_operator}{candidate.version}"
+        )
 
         # Prepare install requirement parents for annotation
-        ireq._required_by = tuple(
+        pinned_ireq._required_by = tuple(
             parent_name
             for parent_name in resolver._result.graph.iter_parents(candidate.name)
             if parent_name is not None
         )
 
         # Prepare install requirement sources for annotation
-        ireq_key = key_from_ireq(ireq)
+        ireq_key = key_from_ireq(pinned_ireq)
         source_ireq = self._constraints_map.get(ireq_key)
         if source_ireq is not None and ireq_key not in self.existing_constraints:
-            ireq._source_ireqs = [source_ireq]
+            pinned_ireq._source_ireqs = [source_ireq]
 
-        return ireq
+        return pinned_ireq

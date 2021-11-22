@@ -45,17 +45,6 @@ def _temp_dep_cache(tmpdir, monkeypatch):
     monkeypatch.setenv("PIP_TOOLS_CACHE_DIR", str(tmpdir / "cache"))
 
 
-@pytest.fixture(autouse=True)
-def _clear_get_requirements_lru_cache():
-    # FIXME: report to pip to remove cache decorator
-    try:
-        from pip._internal.utils.packaging import get_requirement
-    except ImportError:
-        pass
-    else:
-        get_requirement.cache_clear()
-
-
 def test_default_pip_conf_read(pip_with_index_conf, runner):
     # preconditions
     with open("requirements.in", "w"):
