@@ -393,7 +393,7 @@ def test_write_order(writer, from_line):
     ]
     expected_lines = [
         "package==5.6",
-        "package-a==0.1",
+        "package_a==0.1",
         "package-b==2.3.4",
         "package2==7.8.9",
     ]

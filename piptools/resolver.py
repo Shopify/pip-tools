@@ -17,6 +17,7 @@ from pip._internal.resolution.resolvelib.base import Candidate
 from pip._internal.utils.logging import indent_log
 from pip._internal.utils.temp_dir import TempDirectory, global_tempdir_manager
 from pip._vendor.packaging.specifiers import SpecifierSet
+from pip._vendor.packaging.utils import canonicalize_name
 
 from piptools.cache import DependencyCache
 from piptools.repositories.base import BaseRepository
@@ -605,7 +606,7 @@ class Resolver(BaseResolver):
             self.unsafe_constraints.add(ireq)
             return None
 
-        # Detect pin operator
+        # Determine a pin operator
         version_pin_operator = "=="
         version_as_str = str(candidate.version)
         for specifier in ireq.specifier:
@@ -613,8 +614,12 @@ class Resolver(BaseResolver):
                 version_pin_operator = "==="
                 break
 
-        # Override version specifier
+        # Prepare pinned install requirement. Copy from current the install requirement,
+        # so that it could be mutated later.
         pinned_ireq = copy.deepcopy(ireq)
+
+        # Canonicalize name and pin requirement to a resolved version
+        pinned_ireq.req.name = canonicalize_name(ireq.name)
         pinned_ireq.req.specifier = SpecifierSet(
             f"{version_pin_operator}{candidate.version}"
         )
