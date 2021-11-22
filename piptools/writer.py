@@ -1,15 +1,26 @@
 import os
 import re
 import sys
-import typing
 from itertools import chain
-from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    BinaryIO,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from click import unstyle
 from click.core import Context
 from pip._internal.models.format_control import FormatControl
 from pip._internal.req.req_install import InstallRequirement
 from pip._vendor.packaging.markers import Marker
+from pip._vendor.packaging.utils import canonicalize_name
 
 from .logging import log
 from .utils import (
@@ -46,10 +57,10 @@ MESSAGE_UNINSTALLABLE = (
 strip_comes_from_line_re = re.compile(r" \(line \d+\)$")
 
 
-def _comes_from_as_string(comes_from: typing.Union[str, InstallRequirement]) -> str:
+def _comes_from_as_string(comes_from: Union[str, InstallRequirement]) -> str:
     if isinstance(comes_from, str):
         return strip_comes_from_line_re.sub("", comes_from)
-    return key_from_ireq(comes_from)
+    return cast(str, canonicalize_name(key_from_ireq(comes_from)))
 
 
 def annotation_style_split(required_by: Set[str]) -> str:

@@ -626,7 +626,7 @@ class Resolver(BaseResolver):
 
         # Prepare install requirement parents for annotation
         pinned_ireq._required_by = tuple(
-            parent_name
+            canonicalize_name(parent_name)
             for parent_name in resolver._result.graph.iter_parents(candidate.name)
             if parent_name is not None
         )
