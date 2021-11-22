@@ -438,3 +438,10 @@ def get_sys_path_for_python_executable(python_executable: str) -> List[str]:
     assert isinstance(paths, list)
     assert all(isinstance(i, str) for i in paths)
     return [os.path.abspath(path) for path in paths]
+
+
+def remove_value(lst: List[_T], value: _T) -> List[_T]:
+    """
+    Returns new list without a given value.
+    """
+    return [item for item in lst if item != value]

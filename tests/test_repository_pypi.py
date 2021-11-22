@@ -338,7 +338,6 @@ def test_get_project__handles_404(from_line, tmpdir, monkeypatch, pypi_repositor
     assert actual_data is None
 
 
-@pytest.mark.xfail(reason="maybe skip for new resolver?")
 def test_name_collision(from_line, pypi_repository, make_package, make_sdist, tmpdir):
     """
     Test to ensure we don't fail if there are multiple URL-based requirements

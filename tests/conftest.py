@@ -1,11 +1,11 @@
 import json
-import optparse
 import os
 import subprocess
 import sys
 from contextlib import contextmanager
 from functools import partial
 from textwrap import dedent
+from typing import List
 
 import pytest
 from click.testing import CliRunner
@@ -35,6 +35,12 @@ from piptools.utils import (
 
 from .constants import MINIMAL_WHEELS_PATH, TEST_DATA_PATH
 from .utils import looks_like_ci
+
+
+class FakeOptions:
+    def __init__(self) -> None:
+        self.features_enabled: List[str] = []
+        self.deprecated_features_enabled: List[str] = []
 
 
 class FakeRepository(BaseRepository):
@@ -91,8 +97,8 @@ class FakeRepository(BaseRepository):
         yield
 
     @property
-    def options(self) -> optparse.Values:
-        """Not used"""
+    def options(self):
+        return FakeOptions()
 
     @property
     def session(self) -> PipSession:

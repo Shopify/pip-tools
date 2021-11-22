@@ -225,10 +225,12 @@ def _get_default_option(option_name: str) -> Any:
     "--pip-args", "pip_args_str", help="Arguments to pass directly to the pip command."
 )
 @click.option(
-    "--legacy-resolver/--no-legacy-resolver",
-    is_flag=True,
-    default=True,
-    help="Use legacy resolver.",
+    "--resolver",
+    "resolver_name",
+    type=click.Choice(("legacy", "2020")),
+    default="legacy",
+    envvar="PIP_TOOLS_RESOLVER",
+    help="Choose the dependency resolver.",
 )
 @click.option(
     "--emit-index-url/--no-emit-index-url",
@@ -273,7 +275,7 @@ def cli(
     emit_find_links: bool,
     cache_dir: str,
     pip_args_str: Optional[str],
-    legacy_resolver: bool,
+    resolver_name: str,
     emit_index_url: bool,
     emit_options: bool,
 ) -> None:
@@ -342,7 +344,7 @@ def cli(
         pip_args.extend(["--trusted-host", host])
     if not build_isolation:
         pip_args.append("--no-build-isolation")
-    if legacy_resolver:
+    if resolver_name == "legacy":
         pip_args.extend(["--use-deprecated", "legacy-resolver"])
     else:
         pip_args.extend(["--use-feature", "2020-resolver"])
@@ -465,7 +467,7 @@ def cli(
             for find_link in dedup(repository.finder.find_links):
                 log.debug(redact_auth_from_url(find_link))
 
-    resolver_cls = LegacyResolver if legacy_resolver else Resolver
+    resolver_cls = LegacyResolver if resolver_name == "legacy" else Resolver
     try:
         resolver = resolver_cls(
             constraints=constraints,

@@ -21,6 +21,7 @@ from pip._vendor.packaging.specifiers import SpecifierSet
 from piptools.cache import DependencyCache
 from piptools.repositories.base import BaseRepository
 
+from .exceptions import PipToolsError
 from .logging import log
 from .utils import (
     UNSAFE_PACKAGES,
@@ -29,6 +30,7 @@ from .utils import (
     is_pinned_requirement,
     is_url_requirement,
     key_from_ireq,
+    remove_value,
 )
 
 green = partial(click.style, fg="green")
@@ -118,7 +120,7 @@ class BaseResolver:
     repository: BaseRepository
 
     def resolve(self, max_rounds: int) -> Set[InstallRequirement]:
-        raise NotImplementedError
+        raise NotImplementedError("Override in subclass")
 
     def resolve_hashes(
         self, ireqs: Set[InstallRequirement]
@@ -156,6 +158,15 @@ class LegacyResolver(BaseResolver):
         self.clear_caches = clear_caches
         self.allow_unsafe = allow_unsafe
         self.unsafe_constraints: Set[InstallRequirement] = set()
+
+        options = self.repository.options
+        if "legacy-resolver" not in options.deprecated_features_enabled:
+            raise PipToolsError("Legacy resolver deprecated feature must be enabled.")
+
+        # Make sure there is no enabled 2020-resolver
+        options.features_enabled = remove_value(
+            options.features_enabled, "2020-resolver"
+        )
 
     @property
     def constraints(self) -> Set[InstallRequirement]:
@@ -469,6 +480,10 @@ class LegacyResolver(BaseResolver):
 
 
 class Resolver(BaseResolver):
+    """
+    Uses pip's 2020 resolver.
+    """
+
     def __init__(
         self,
         constraints: Iterable[InstallRequirement],
@@ -481,7 +496,7 @@ class Resolver(BaseResolver):
         self.repository = repository
         self.allow_unsafe = allow_unsafe
 
-        self.options = self.repository.options
+        options = self.options = self.repository.options
         self.session = self.repository.session
         self.finder = self.repository.finder
         self.command = self.repository.command
@@ -489,6 +504,14 @@ class Resolver(BaseResolver):
 
         self.existing_constraints = existing_constraints
         self._constraints_map = {key_from_ireq(ireq): ireq for ireq in constraints}
+
+        if "2020-resolver" not in options.features_enabled:
+            raise PipToolsError("2020 resolver feature must be enabled.")
+
+        # Make sure there is no enabled legacy resolver
+        options.deprecated_features_enabled = remove_value(
+            options.deprecated_features_enabled, "legacy-resolver"
+        )
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
         with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log(), update_env_context_manager(  # noqa: E501

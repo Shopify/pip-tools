@@ -9,11 +9,35 @@ import pytest
 from pip._internal.utils.urls import path_to_url
 
 from piptools.scripts.compile import cli
+from piptools.utils import COMPILE_EXCLUDE_OPTIONS
 
 from .constants import MINIMAL_WHEELS_PATH, PACKAGES_PATH
 
 is_pypy = "__pypy__" in sys.builtin_module_names
 is_windows = sys.platform == "win32"
+
+
+RESOLVER_LEGACY = "legacy"
+RESOLVER_2020 = "2020"
+
+
+@pytest.fixture(
+    autouse=True,
+    params=[
+        pytest.param(RESOLVER_LEGACY, id="legacy resolver"),
+        pytest.param(RESOLVER_2020, id="2020 resolver"),
+    ],
+)
+def current_resolver(request, monkeypatch):
+    # Hide --resolver option from pip-compile header, so that we don't have to
+    # inject it every time to tests outputs.
+    exclude_options = COMPILE_EXCLUDE_OPTIONS | {"--resolver"}
+    monkeypatch.setattr("piptools.utils.COMPILE_EXCLUDE_OPTIONS", exclude_options)
+
+    # Setup given resolver name
+    resolver_name = request.param
+    monkeypatch.setenv("PIP_TOOLS_RESOLVER", resolver_name)
+    return resolver_name
 
 
 @pytest.fixture(autouse=True)
@@ -438,12 +462,21 @@ def test_editable_package_without_non_editable_duplicate(pip_conf, runner):
     assert "small-fake-a==" not in out.stderr
 
 
-@pytest.mark.skip(reason="pip refactored constraints validator")
-def test_editable_package_constraint_without_non_editable_duplicate(pip_conf, runner):
+def test_editable_package_constraint_without_non_editable_duplicate(
+    pip_conf, runner, current_resolver
+):
     """
     piptools keeps editable constraint,
     without also adding a duplicate "non-editable" requirement variation
     """
+
+    if current_resolver != RESOLVER_LEGACY:
+        pytest.skip(
+            "This test is actual only for legacy resolver. "
+            "Constraints refactored in 2020 resolver. "
+            "See https://github.com/pypa/pip/issues/9020 for details."
+        )
+
     fake_package_dir = os.path.join(PACKAGES_PATH, "small_fake_a")
     fake_package_dir = path_to_url(fake_package_dir)
     with open("constraints.txt", "w") as constraints:
@@ -463,13 +496,21 @@ def test_editable_package_constraint_without_non_editable_duplicate(pip_conf, ru
     assert "small-fake-a==" not in out.stderr
 
 
-@pytest.mark.skip(reason="pip refactored constraints validator")
 @pytest.mark.parametrize("req_editable", ((True,), (False,)))
-def test_editable_package_in_constraints(pip_conf, runner, req_editable):
+def test_editable_package_in_constraints(
+    pip_conf, runner, req_editable, current_resolver
+):
     """
     piptools can compile an editable that appears in both primary requirements
     and constraints
     """
+    if current_resolver != RESOLVER_LEGACY:
+        pytest.skip(
+            "This test is actual only for legacy resolver. "
+            "Constraints refactored in 2020 resolver. "
+            "See https://github.com/pypa/pip/issues/9020 for details."
+        )
+
     fake_package_dir = os.path.join(PACKAGES_PATH, "small_fake_with_deps")
     fake_package_dir = path_to_url(fake_package_dir)
 
@@ -502,13 +543,15 @@ def test_editable_package_vcs(runner):
     assert "click" in out.stderr  # dependency of pip-tools
 
 
-@pytest.mark.skip(reason="Not actual with a new resolver")
 def test_locally_available_editable_package_is_not_archived_in_cache_dir(
-    pip_conf, tmpdir, runner
+    pip_conf, tmpdir, runner, current_resolver
 ):
     """
     piptools will not create an archive for a locally available editable requirement
     """
+    if current_resolver != RESOLVER_LEGACY:
+        pytest.skip("Test relevant to legacy resolver.")
+
     cache_dir = tmpdir.mkdir("cache_dir")
 
     fake_package_dir = os.path.join(PACKAGES_PATH, "small_fake_with_deps")
@@ -1026,8 +1069,10 @@ def test_filter_pip_markers(pip_conf, runner):
     assert "unknown_package" not in out.stderr
 
 
-@pytest.mark.skip(reason="Now pip's resolver handles it")
-def test_no_candidates(pip_conf, runner):
+def test_no_candidates(pip_conf, runner, current_resolver):
+    if current_resolver != RESOLVER_LEGACY:
+        pytest.skip("Only legacy resolver throws this errors.")
+
     with open("requirements", "w") as req_in:
         req_in.write("small-fake-a>0.3b1,<0.3b2")
 
@@ -1037,8 +1082,10 @@ def test_no_candidates(pip_conf, runner):
     assert "Skipped pre-versions:" in out.stderr
 
 
-@pytest.mark.skip(reason="Now pip's resolver handles it")
-def test_no_candidates_pre(pip_conf, runner):
+def test_no_candidates_pre(pip_conf, runner, current_resolver):
+    if current_resolver != RESOLVER_LEGACY:
+        pytest.skip("Only legacy resolver throws this errors.")
+
     with open("requirements", "w") as req_in:
         req_in.write("small-fake-a>0.3b1,<0.3b1")
 
@@ -1214,8 +1261,8 @@ def test_annotate_option(pip_conf, runner, options, expected):
 
     out = runner.invoke(cli, [*options, "-n", "--no-emit-find-links"])
 
+    assert out.exit_code == 0, out
     assert out.stderr == dedent(expected)
-    assert out.exit_code == 0
 
 
 @pytest.mark.parametrize(
@@ -1494,11 +1541,15 @@ def test_options_in_requirements_file(runner, options):
         ),
     ),
 )
-@pytest.mark.skip(reason="pip's resolver handles now NoCandidateFound-like errors")
-def test_unreachable_index_urls(runner, cli_options, expected_message):
+def test_unreachable_index_urls(
+    runner, cli_options, expected_message, current_resolver
+):
     """
     Test pip-compile raises an error if index URLs are not reachable.
     """
+    if current_resolver != RESOLVER_LEGACY:
+        pytest.skip("Only legacy resolver throws this errors.")
+
     with open("requirements.in", "w") as reqs_in:
         reqs_in.write("some-package")
 
