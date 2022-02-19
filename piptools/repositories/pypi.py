@@ -123,6 +123,7 @@ class PyPIRepository(BaseRepository):
 
     @property
     def command(self) -> InstallCommand:
+        """Return an install command instance."""
         return self._command
 
     def find_all_candidates(self, req_name: str) -> List[InstallationCandidate]:

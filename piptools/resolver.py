@@ -126,9 +126,7 @@ class BaseResolver:
     def resolve_hashes(
         self, ireqs: Set[InstallRequirement]
     ) -> Dict[InstallRequirement, Set[str]]:
-        """
-        Finds acceptable hashes for all of the given InstallRequirements.
-        """
+        """Find acceptable hashes for all of the given ``InstallRequirement``s."""
         log.debug("")
         log.debug("Generating hashes:")
         with self.repository.allow_all_wheels(), log.indentation():
@@ -481,9 +479,7 @@ class LegacyResolver(BaseResolver):
 
 
 class Resolver(BaseResolver):
-    """
-    Uses pip's 2020 resolver.
-    """
+    """A wrapper for backtracking resolver."""
 
     def __init__(
         self,

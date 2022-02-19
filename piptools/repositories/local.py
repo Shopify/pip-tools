@@ -64,6 +64,7 @@ class LocalRequirementsRepository(BaseRepository):
 
     @property
     def command(self) -> InstallCommand:
+        """Return an install command instance."""
         return self.repository.command
 
     def clear_caches(self) -> None:

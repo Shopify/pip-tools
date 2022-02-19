@@ -66,4 +66,4 @@ class BaseRepository(metaclass=ABCMeta):
     @property
     @abstractmethod
     def command(self) -> InstallCommand:
-        """Returns an install command"""
+        """Return an install command."""
