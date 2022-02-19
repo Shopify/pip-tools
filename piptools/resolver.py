@@ -1,8 +1,19 @@
+import collections
 import copy
-import typing
+import re
 from functools import partial
 from itertools import chain, count, groupby
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import click
 from pip._internal.cache import WheelCache
@@ -12,12 +23,12 @@ from pip._internal.req.req_tracker import (
     get_requirement_tracker,
     update_env_context_manager,
 )
-from pip._internal.resolution.base import BaseResolver as PipBaseResolver
 from pip._internal.resolution.resolvelib.base import Candidate
 from pip._internal.utils.logging import indent_log
 from pip._internal.utils.temp_dir import TempDirectory, global_tempdir_manager
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.utils import canonicalize_name
+from pip._vendor.resolvelib.resolvers import Result
 
 from piptools.cache import DependencyCache
 from piptools.repositories.base import BaseRepository
@@ -137,7 +148,7 @@ class LegacyResolver(BaseResolver):
     def __init__(
         self,
         constraints: Iterable[InstallRequirement],
-        existing_constraints: typing.Dict[str, InstallRequirement],
+        existing_constraints: Dict[str, InstallRequirement],
         repository: BaseRepository,
         cache: DependencyCache,
         prereleases: Optional[bool] = False,
@@ -484,7 +495,7 @@ class Resolver(BaseResolver):
     def __init__(
         self,
         constraints: Iterable[InstallRequirement],
-        existing_constraints: typing.Dict[str, InstallRequirement],
+        existing_constraints: Dict[str, InstallRequirement],
         repository: BaseRepository,
         allow_unsafe: bool = False,
         **kwargs: Any,
@@ -569,25 +580,50 @@ class Resolver(BaseResolver):
                 check_supported_wheels=not self.options.target_dir,
             )
 
-        return self._get_install_requirements(resolver)
+        return self._get_install_requirements(resolver._result)
 
     def _get_install_requirements(
-        self, resolver: PipBaseResolver
+        self, resolver_result: Result
     ) -> Set[InstallRequirement]:
-        """Returns a set of install requirements from resolver results."""
+        """Return a set of install requirements from resolver results."""
         reqs = set()
-        for candidate in resolver._result.mapping.values():
+        reverse_dependencies = self._get_reverse_dependencies(resolver_result)
+        for candidate in resolver_result.mapping.values():
             ireq = self._get_install_requirement_from_candidate(
-                resolver=resolver,
                 candidate=candidate,
+                reverse_dependencies=reverse_dependencies,
             )
             if ireq is None:
                 continue
             reqs.add(ireq)
         return reqs
 
+    @staticmethod
+    def _get_reverse_dependencies(
+        resolver_result: Result,
+    ) -> DefaultDict[str, Set[str]]:
+        reverse_dependencies: DefaultDict[str, Set[str]] = collections.defaultdict(set)
+
+        for candidate in resolver_result.mapping.values():
+            stripped_name = strip_extras(canonicalize_name(candidate.name))
+
+            for parent_name in resolver_result.graph.iter_parents(candidate.name):
+                # Skip root dependency which is always None
+                if parent_name is None:
+                    continue
+
+                # Skip a dependency that equals to the candidate. This could be
+                # the dependency with extras.
+                stripped_parent_name = strip_extras(canonicalize_name(parent_name))
+                if stripped_name == stripped_parent_name:
+                    continue
+
+                reverse_dependencies[stripped_name].add(stripped_parent_name)
+
+        return reverse_dependencies
+
     def _get_install_requirement_from_candidate(
-        self, resolver: PipBaseResolver, candidate: Candidate
+        self, candidate: Candidate, reverse_dependencies: DefaultDict[str, Set[str]]
     ) -> Optional[InstallRequirement]:
         ireq = candidate.get_install_requirement()
         if ireq is None:
@@ -620,16 +656,19 @@ class Resolver(BaseResolver):
         )
 
         # Prepare install requirement parents for annotation
-        pinned_ireq._required_by = tuple(
-            canonicalize_name(parent_name)
-            for parent_name in resolver._result.graph.iter_parents(candidate.name)
-            if parent_name is not None
-        )
+        ireq_key = key_from_ireq(pinned_ireq)
+        pinned_ireq._required_by = reverse_dependencies[ireq_key]
 
         # Prepare install requirement sources for annotation
-        ireq_key = key_from_ireq(pinned_ireq)
         source_ireq = self._constraints_map.get(ireq_key)
         if source_ireq is not None and ireq_key not in self.existing_constraints:
             pinned_ireq._source_ireqs = [source_ireq]
 
         return pinned_ireq
+
+
+_strip_extras_regex = re.compile(r"\[.+?\]")
+
+
+def strip_extras(s: str) -> str:
+    return re.sub(_strip_extras_regex, "", s)
