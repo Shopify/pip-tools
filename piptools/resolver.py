@@ -518,15 +518,14 @@ class Resolver(BaseResolver):
             for ireq in self.constraints:
                 ireq.user_supplied = True
 
-            # Pass compiled requirements from `requirements.txt` as constraints to resolver
-            existing_constraints = list(self.existing_constraints.values())
-            for ireq in existing_constraints:
+            # Pass compiled requirements from `requirements.txt`
+            # as constraints to resolver
+            for ireq in self.existing_constraints.values():
                 ireq.extras = set()  # pip does not support extras in constraints
                 ireq.constraint = True
                 ireq.user_supplied = False
                 ireq._is_existing_pin = True
-
-            self.constraints.extend(existing_constraints)
+                self.constraints.append(ireq)
 
             wheel_cache = WheelCache(
                 self.options.cache_dir, self.options.format_control
