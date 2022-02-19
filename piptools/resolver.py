@@ -31,7 +31,7 @@ from .utils import (
     is_pinned_requirement,
     is_url_requirement,
     key_from_ireq,
-    remove_value,
+    omit_list_value,
 )
 
 green = partial(click.style, fg="green")
@@ -163,7 +163,7 @@ class LegacyResolver(BaseResolver):
             raise PipToolsError("Legacy resolver deprecated feature must be enabled.")
 
         # Make sure there is no enabled 2020-resolver
-        options.features_enabled = remove_value(
+        options.features_enabled = omit_list_value(
             options.features_enabled, "2020-resolver"
         )
 
@@ -506,7 +506,7 @@ class Resolver(BaseResolver):
             raise PipToolsError("2020 resolver feature must be enabled.")
 
         # Make sure there is no enabled legacy resolver
-        options.deprecated_features_enabled = remove_value(
+        options.deprecated_features_enabled = omit_list_value(
             options.deprecated_features_enabled, "legacy-resolver"
         )
 
