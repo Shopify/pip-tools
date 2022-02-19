@@ -227,7 +227,7 @@ def _get_default_option(option_name: str) -> Any:
 @click.option(
     "--resolver",
     "resolver_name",
-    type=click.Choice(("legacy", "2020")),
+    type=click.Choice(("legacy", "backtracking")),
     default="legacy",
     envvar="PIP_TOOLS_RESOLVER",
     help="Choose the dependency resolver.",

@@ -15,15 +15,9 @@ from .constants import MINIMAL_WHEELS_PATH, PACKAGES_PATH
 
 is_pypy = "__pypy__" in sys.builtin_module_names
 is_windows = sys.platform == "win32"
-
-
-RESOLVER_LEGACY = "legacy"
-RESOLVER_2020 = "2020"
-
-
 legacy_resolver_only = pytest.mark.parametrize(
     "current_resolver",
-    (RESOLVER_LEGACY,),
+    ("legacy",),
     indirect=("current_resolver",),
 )
 
@@ -31,8 +25,8 @@ legacy_resolver_only = pytest.mark.parametrize(
 @pytest.fixture(
     autouse=True,
     params=[
-        pytest.param(RESOLVER_LEGACY, id="legacy resolver"),
-        pytest.param(RESOLVER_2020, id="2020 resolver"),
+        pytest.param("legacy", id="legacy resolver"),
+        pytest.param("backtracking", id="backtracking resolver"),
     ],
 )
 def current_resolver(request, monkeypatch):
