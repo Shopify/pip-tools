@@ -524,7 +524,6 @@ class Resolver(BaseResolver):
                 ireq.extras = set()  # pip does not support extras in constraints
                 ireq.constraint = True
                 ireq.user_supplied = False
-                ireq._is_existing_pin = True
                 self.constraints.append(ireq)
 
             wheel_cache = WheelCache(
