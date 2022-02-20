@@ -471,9 +471,7 @@ def cli(
     try:
         resolver = resolver_cls(
             constraints=constraints,
-            existing_constraints={
-                key_from_ireq(ireq): ireq for ireq in existing_pins.values()
-            },
+            existing_constraints=existing_pins,
             repository=repository,
             prereleases=repository.finder.allow_all_prereleases or pre,
             cache=DependencyCache(cache_dir),
