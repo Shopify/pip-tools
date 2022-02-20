@@ -3,6 +3,7 @@ import copy
 import itertools
 import json
 import os
+import re
 import shlex
 import typing
 from typing import (
@@ -446,3 +447,11 @@ def get_sys_path_for_python_executable(python_executable: str) -> List[str]:
 def omit_list_value(lst: List[_T], value: _T) -> List[_T]:
     """Produce a new list with a given value skipped."""
     return [item for item in lst if item != value]
+
+
+_strip_extras_re = re.compile(r"\[.+?\]")
+
+
+def strip_extras(name: str) -> str:
+    """Strip extras from package name, e.g. pytest[testing] -> pytest."""
+    return re.sub(_strip_extras_re, "", name)

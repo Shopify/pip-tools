@@ -1,6 +1,5 @@
 import collections
 import copy
-import re
 from functools import partial
 from itertools import chain, count, groupby
 from typing import (
@@ -43,6 +42,7 @@ from .utils import (
     is_url_requirement,
     key_from_ireq,
     omit_list_value,
+    strip_extras,
 )
 
 green = partial(click.style, fg="green")
@@ -665,10 +665,3 @@ class Resolver(BaseResolver):
             pinned_ireq._source_ireqs = [source_ireq]
 
         return pinned_ireq
-
-
-_strip_extras_regex = re.compile(r"\[.+?\]")
-
-
-def strip_extras(s: str) -> str:
-    return re.sub(_strip_extras_regex, "", s)

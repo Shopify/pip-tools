@@ -30,6 +30,7 @@ from .utils import (
     format_requirement,
     get_compile_command,
     key_from_ireq,
+    strip_extras,
 )
 
 MESSAGE_UNHASHED_PACKAGE = comment(
@@ -272,7 +273,7 @@ class OutputWriter:
 
         line = format_requirement(ireq, marker=marker, hashes=ireq_hashes)
         if self.strip_extras:
-            line = re.sub(r"\[.+?\]", "", line)
+            line = strip_extras(line)
 
         if not self.annotate:
             return line
@@ -301,7 +302,7 @@ class OutputWriter:
             else:  # pragma: no cover
                 raise ValueError("Invalid value for annotation style")
             if self.strip_extras:
-                annotation = re.sub(r"\[.+?\]", "", annotation)
+                annotation = strip_extras(annotation)
             # 24 is one reasonable column size to use here, that we've used in the past
             lines = f"{line:24}{sep}{comment(annotation)}".splitlines()
             line = "\n".join(ln.rstrip() for ln in lines)
