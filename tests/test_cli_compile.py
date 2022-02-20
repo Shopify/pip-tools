@@ -453,9 +453,7 @@ def test_editable_package_without_non_editable_duplicate(pip_conf, runner):
 
 
 @legacy_resolver_only
-def test_editable_package_constraint_without_non_editable_duplicate(
-    pip_conf, runner, current_resolver
-):
+def test_editable_package_constraint_without_non_editable_duplicate(pip_conf, runner):
     """
     piptools keeps editable constraint,
     without also adding a duplicate "non-editable" requirement variation
@@ -481,9 +479,7 @@ def test_editable_package_constraint_without_non_editable_duplicate(
 
 @legacy_resolver_only
 @pytest.mark.parametrize("req_editable", ((True,), (False,)))
-def test_editable_package_in_constraints(
-    pip_conf, runner, req_editable, current_resolver
-):
+def test_editable_package_in_constraints(pip_conf, runner, req_editable):
     """
     piptools can compile an editable that appears in both primary requirements
     and constraints
@@ -522,7 +518,7 @@ def test_editable_package_vcs(runner):
 
 @legacy_resolver_only
 def test_locally_available_editable_package_is_not_archived_in_cache_dir(
-    pip_conf, tmpdir, runner, current_resolver
+    pip_conf, tmpdir, runner
 ):
     """
     piptools will not create an archive for a locally available editable requirement
@@ -1045,7 +1041,7 @@ def test_filter_pip_markers(pip_conf, runner):
 
 
 @legacy_resolver_only
-def test_no_candidates(pip_conf, runner, current_resolver):
+def test_no_candidates(pip_conf, runner):
     with open("requirements", "w") as req_in:
         req_in.write("small-fake-a>0.3b1,<0.3b2")
 
@@ -1056,7 +1052,7 @@ def test_no_candidates(pip_conf, runner, current_resolver):
 
 
 @legacy_resolver_only
-def test_no_candidates_pre(pip_conf, runner, current_resolver):
+def test_no_candidates_pre(pip_conf, runner):
     with open("requirements", "w") as req_in:
         req_in.write("small-fake-a>0.3b1,<0.3b1")
 
@@ -1513,9 +1509,7 @@ def test_options_in_requirements_file(runner, options):
     ),
 )
 @legacy_resolver_only
-def test_unreachable_index_urls(
-    runner, cli_options, expected_message, current_resolver
-):
+def test_unreachable_index_urls(runner, cli_options, expected_message):
     """
     Test pip-compile raises an error if index URLs are not reachable.
     """
