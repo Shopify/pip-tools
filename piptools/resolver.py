@@ -522,9 +522,9 @@ class Resolver(BaseResolver):
         )
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
-        with get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log(), update_env_context_manager(  # noqa: E501
+        with update_env_context_manager(
             PIP_EXISTS_ACTION="i"
-        ):
+        ), get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log():
             # Mark direct/primary/user_supplied packages
             for ireq in self.constraints:
                 ireq.user_supplied = True
