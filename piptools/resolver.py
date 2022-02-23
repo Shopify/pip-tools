@@ -1,5 +1,6 @@
 import collections
 import copy
+from abc import ABCMeta, abstractmethod
 from functools import partial
 from itertools import chain, count, groupby
 from typing import (
@@ -128,11 +129,16 @@ def combine_install_requirements(
     return combined_ireq
 
 
-class BaseResolver:
+class BaseResolver(metaclass=ABCMeta):
     repository: BaseRepository
 
+    @abstractmethod
     def resolve(self, max_rounds: int) -> Set[InstallRequirement]:
-        raise NotImplementedError("Override in subclass")
+        """
+        Find concrete package versions for all the given InstallRequirements
+        and their recursive dependencies and return a set of pinned
+        ``InstallRequirement``'s.
+        """
 
     def resolve_hashes(
         self, ireqs: Set[InstallRequirement]
@@ -186,9 +192,9 @@ class LegacyResolver(BaseResolver):
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
         """
-        Finds concrete package versions for all the given InstallRequirements
-        and their recursive dependencies.  The end result is a flat list of
-        (name, version) tuples.  (Or an editable package.)
+        Find concrete package versions for all the given InstallRequirements
+        and their recursive dependencies and return a set of pinned
+        ``InstallRequirement``'s.
 
         Resolves constraints one round at a time, until they don't change
         anymore.  Protects against infinite loops by breaking out after a max
@@ -522,6 +528,11 @@ class Resolver(BaseResolver):
         )
 
     def resolve(self, max_rounds: int = 10) -> Set[InstallRequirement]:
+        """
+        Find concrete package versions for all the given InstallRequirements
+        and their recursive dependencies and return a set of pinned
+        ``InstallRequirement``'s.
+        """
         with update_env_context_manager(
             PIP_EXISTS_ACTION="i"
         ), get_requirement_tracker() as req_tracker, global_tempdir_manager(), indent_log():
