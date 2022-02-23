@@ -558,10 +558,6 @@ class Resolver(BaseResolver):
                 globally_managed=True,
             )
 
-            # If any requirement has hash options, enable hash checking.
-            if any(req.has_hash_options for req in self.constraints):
-                self.options.require_hashes = True
-
             preparer = self.command.make_requirement_preparer(
                 temp_build_dir=temp_dir,
                 options=self.options,
